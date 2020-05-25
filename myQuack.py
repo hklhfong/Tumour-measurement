@@ -16,7 +16,10 @@ You are welcome to use the pandas library if you know it.
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
-from sklearn.metrics import plot_confusion_matrix
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.model_selection import GridSearchCV
+
 
 import numpy as np
 import tensorflow as tf
@@ -44,7 +47,7 @@ def my_team():
     of triplet of the form (student_number, first_name, last_name)
     
     '''
-    return [ (10107321, 'Law', 'HoFong'), (1234568, 'Kiki', 'Hopper') ]
+    return [ (10107321, 'Law', 'HoFong'), (10031017, 'Kiki', 'Mutiara') ]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -95,8 +98,15 @@ def build_DecisionTree_classifier(X_training, y_training):
     @return
 	clf : the classifier built in this function
     '''
+
+    min_samples_leaf = [1, 2, 4]
+    hyperparameters = dict(min_samples_leaf=min_samples_leaf)
+
+
     clf = DecisionTreeClassifier()
+    clf = GridSearchCV(clf, hyperparameters, cv=10)
     clf = clf.fit(X_training,y_training)
+    print('Best sample leaf:', clf.best_estimator_.get_params()['min_samples_leaf'])
     return clf
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -113,8 +123,14 @@ def build_NearrestNeighbours_classifier(X_training, y_training):
 	clf : the classifier built in this function
     '''
     
+    n_neighbors = list(range(1,30))
+
+    hyperparameters = dict(n_neighbors=n_neighbors)
+
     clf = KNeighborsClassifier()
+    clf = GridSearchCV(clf, hyperparameters, cv=10)
     clf = clf.fit(X_training,y_training)
+    print('Best n_neighbors:', clf.best_estimator_.get_params()['n_neighbors'])
     return clf
     
 
@@ -132,8 +148,14 @@ def build_SupportVectorMachine_classifier(X_training, y_training):
 	clf : the classifier built in this function
     '''
     
+    C = [0.1,1, 10, 100]
+
+    hyperparameters = dict(C=C)
+
     clf = SVC()
+    clf = GridSearchCV(clf, hyperparameters, cv=10)
     clf = clf.fit(X_training,y_training)
+    print('Best C:', clf.best_estimator_.get_params()['C'])
     return clf
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -151,15 +173,14 @@ def build_NeuralNetwork_classifier(X_training, y_training):
     @return
 	clf : the classifier built in this function
     '''
-    inputs = keras.Input(shape=(31), name='input')
-    x = layers.Dense(20, activation='relu', name='dense_1')(inputs)
-    x = layers.Dense(10, activation='relu', name='dense_2')(x)
-    outputs = layers.Dense(1,activation='sigmoid', name='output')(x)
-    clf = keras.Model(inputs=inputs, outputs=outputs, name='TwoDense')
-    clf.summary()
-    clf.compile(loss='binary_crossentropy', optimizer='adam',metrics =['accuracy'])
-    history = clf.fit(X_training,y_training,epochs=20,validation_split=0.2)
-    return clf,history
+
+    hyperparameters = dict(hidden_layer_sizes = [(20, 10), (30, 20)])
+
+    clf = MLPClassifier(max_iter=300)
+    clf = GridSearchCV(clf, hyperparameters, cv=10)
+    clf = clf.fit(X_training, y_training)
+    print('Best hidden layer size:', clf.best_estimator_.get_params()['hidden_layer_sizes'])
+    return clf
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -196,60 +217,67 @@ if __name__ == "__main__":
     # Call your functions here 
 
     print(my_team())
-    #Plot tree graph and display the prediction accuracy
-    X,y = prepare_dataset(r'C:\Users\user\Downloads\medical_records.data.txt')
+
+    X,y = prepare_dataset(r'/content/medical_records.data.txt')
     x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
-    clf = build_DecisionTree_classifier(x_train,y_train)
-    score = clf.score(x_test, y_test)
+
+    #Display the Decision Tree prediction accuracy
+    clf_DT = build_DecisionTree_classifier(x_train,y_train)
+    output_DT = clf_DT.predict(x_test)
+    score = clf_DT.score(x_test, y_test)
     print('The accuracy of decision tree classifier:' + str(score))
-    fig, ax = plt.subplots(figsize=(50, 50)) 
-    tree.plot_tree(clf, ax=ax);
     
     #Display the KNN prediction accuracy
-    clf = build_NearrestNeighbours_classifier(x_train,y_train)
-    output = clf.predict(x_test)
-    acc = accuracy_score(y_test, output)
+    clf_KNN = build_NearrestNeighbours_classifier(x_train,y_train)
+    output_KNN = clf_KNN.predict(x_test)
+    acc = accuracy_score(y_test, output_KNN)
     print('The accuracy of KNN:' + str(acc))
     
     #Display the SVM prediction accuracy
-    clf = build_SupportVectorMachine_classifier(x_train,y_train)
-    output = clf.predict(x_test)
-    acc = accuracy_score(y_test, output)
+    clf_SVM = build_SupportVectorMachine_classifier(x_train,y_train)
+    output_SVM = clf_SVM.predict(x_test)
+    acc = accuracy_score(y_test, output_SVM)
     print('The accuracy of SVM:' + str(acc))
     
     #Display the NNC prediction accuracy
-    clf,history = build_NeuralNetwork_classifier(x_train,y_train)  
-    test_loss, test_acc = clf.evaluate(x_test,  y_test, verbose=2)
-    print('The accuracy of NNC:', test_acc)
-    # plot training history
-    print(history.history.keys())
-    # summarize history for accuracy
-    plt.plot(history.history['accuracy'])
-    plt.plot(history.history['val_accuracy'])
-    plt.title('model accuracy')
-    plt.ylabel('accuracy')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
+    clf = build_NeuralNetwork_classifier(x_train,y_train) 
+    pred = clf.predict(x_test)
+    cm = confusion_matrix(pred, y_test)
+    diagonal_sum = cm.trace()
+    sum_of_all_elements = cm.sum()
+    accuracy = diagonal_sum / sum_of_all_elements
+    print('The accuracy of Neural Network:' + str(accuracy))
+
+    #Plot confusion matrices
+    # Decision Tree CM
+    disp_DT = confusion_matrix(y_test, output_DT)
+    fig = plt.figure(figsize=[20, 6])
+    plt.title("Confusion Matrix DT")
+    ax = fig.add_subplot(1, 2, 1)
+    c = ConfusionMatrixDisplay(disp_DT, display_labels=range(10))
+    c.plot(ax = ax)
+
+    # KNN CM
+    disp_KNN = confusion_matrix(y_test, output_KNN)
+    fig = plt.figure(figsize=[20, 6])
+    plt.title("Confusion Matrix KNN")
+    ax = fig.add_subplot(1, 2, 1)
+    c = ConfusionMatrixDisplay(disp_KNN, display_labels=range(10))
+    c.plot(ax = ax)
+
+    # SVM CM
+    disp_SVM = confusion_matrix(y_test, output_SVM)
+    fig = plt.figure(figsize=[20, 6])
+    plt.title("Confusion Matrix SVM")
+    ax = fig.add_subplot(1, 2, 1)
+    c = ConfusionMatrixDisplay(disp_SVM, display_labels=range(10))
+    c.plot(ax = ax)
+
+    # NNC CM
+    fig = plt.figure(figsize=[20, 6])
+    plt.title("Confusion Matrix Neural Network")
+    ax = fig.add_subplot(1, 2, 1)
+    c = ConfusionMatrixDisplay(cm, display_labels=range(10))
+    c.plot(ax = ax)
+    
     plt.show()
-    # summarize history for loss
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
-    plt.title('Model loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
-    
-    # disp = plot_confusion_matrix(history, x_test, y_test,
-    #                              cmap=plt.cm.Blues)
-    # disp.ax_.set_title('Confusion matrix')
-    # print(disp.confusion_matrix)
-    
-    
-    plt.show()
-
-    
-    
-    
-    
-
-
